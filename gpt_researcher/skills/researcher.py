@@ -17,10 +17,12 @@ class ResearchConductor:
         self.logger = logging.getLogger('research')
         self.json_handler = get_json_handler()
 
-    async def plan_research(self, query, query_domains=None):
+    async def plan_research(self, query, query_domains=None, document_context=""):
         self.logger.info(f"Planning research for query: {query}")
         if query_domains:
             self.logger.info(f"Query domains: {query_domains}")
+        if document_context:
+            self.logger.info(f"Using document context: {len(document_context)} characters")
         
         await stream_output(
             "logs",
@@ -47,6 +49,7 @@ class ResearchConductor:
             parent_query=self.researcher.parent_query,
             report_type=self.researcher.report_type,
             cost_callback=self.researcher.add_costs,
+            document_context=document_context,
             **self.researcher.kwargs
         )
         self.logger.info(f"Research outline planned: {outline}")
@@ -104,7 +107,7 @@ class ResearchConductor:
             if self.researcher.vector_store:
                 self.researcher.vector_store.load(document_data)
 
-            research_data = await self._get_context_by_web_search(self.researcher.query, document_data, self.researcher.query_domains)
+            research_data = await self._get_context_by_local_search(self.researcher.query, document_data)
 
         # Hybrid search including both local documents and web sources
         elif self.researcher.report_source == ReportSource.Hybrid.value:
@@ -114,8 +117,21 @@ class ResearchConductor:
                 document_data = await DocumentLoader(self.researcher.cfg.doc_path).load()
             if self.researcher.vector_store:
                 self.researcher.vector_store.load(document_data)
-            docs_context = await self._get_context_by_web_search(self.researcher.query, document_data, self.researcher.query_domains)
-            web_context = await self._get_context_by_web_search(self.researcher.query, [], self.researcher.query_domains)
+            
+            # Extract document context for intelligent research planning
+            document_context = ""
+            if document_data:
+                # Combine document content to use as context
+                document_contents = []
+                for doc in document_data[:3]:  # Use first 3 documents to avoid token limits
+                    if doc.get('raw_content'):
+                        content_preview = doc['raw_content'][:1000]  # First 1000 chars
+                        document_contents.append(content_preview)
+                document_context = "\n\n".join(document_contents)
+                self.logger.info(f"Using document context for research planning: {len(document_context)} characters")
+            
+            docs_context = await self._get_context_by_web_search(self.researcher.query, document_data, self.researcher.query_domains, document_context)
+            web_context = await self._get_context_by_web_search(self.researcher.query, [], self.researcher.query_domains, document_context)
             research_data = self.researcher.prompt_family.join_local_web_documents(docs_context, web_context)
 
         elif self.researcher.report_source == ReportSource.Azure.value:
@@ -215,7 +231,7 @@ class ResearchConductor:
         )
         return context
 
-    async def _get_context_by_web_search(self, query, scraped_data: list | None = None, query_domains: list | None = None):
+    async def _get_context_by_web_search(self, query, scraped_data: list | None = None, query_domains: list | None = None, document_context: str = ""):
         """
         Generates the context for the research task by searching the query and scraping the results
         Returns:
@@ -229,7 +245,7 @@ class ResearchConductor:
             query_domains = []
 
         # Generate Sub-Queries including original query
-        sub_queries = await self.plan_research(query, query_domains)
+        sub_queries = await self.plan_research(query, query_domains, document_context)
         self.logger.info(f"Generated sub-queries: {sub_queries}")
         
         # If this is not part of a sub researcher, add original query to research for better results
@@ -408,3 +424,67 @@ class ResearchConductor:
             self.researcher.vector_store.load(scraped_content)
 
         return scraped_content
+
+    async def _get_context_by_local_search(self, query, document_data):
+        """
+        Generates the context for the research task by searching the local documents only
+        Returns:
+            context: Combined context from local documents
+        """
+        self.logger.info(f"Starting local document analysis for query: {query}")
+        self.logger.info(f"Document data structure: {len(document_data)} documents")
+        
+        # Debug: Log document structure
+        for i, doc in enumerate(document_data[:2]):  # Log first 2 documents
+            self.logger.info(f"Document {i}: keys={list(doc.keys())}")
+            if 'raw_content' in doc:
+                content_preview = doc['raw_content'][:200] if doc['raw_content'] else "EMPTY"
+                self.logger.info(f"Document {i} content preview: {content_preview}...")
+            if 'url' in doc:
+                self.logger.info(f"Document {i} URL: {doc['url']}")
+        
+        if self.researcher.verbose:
+            await stream_output(
+                "logs",
+                "local_search",
+                f"📚 Getting relevant content based on query: {query}...",
+                self.researcher.websocket,
+            )
+
+        try:
+            # For local search, we want to analyze the full document content
+            # rather than filtering based on similarity, so we'll format and return all content
+            formatted_content = []
+            
+            for doc in document_data:
+                if doc.get('raw_content'):
+                    source = doc.get('url', 'Unknown')
+                    content = doc['raw_content']
+                    
+                    # Format the document content
+                    formatted_doc = f"Source: {source}\nTitle: {source}\nContent: {content}\n"
+                    formatted_content.append(formatted_doc)
+            
+            # Join all document content
+            full_content = "\n".join(formatted_content)
+            self.logger.info(f"Formatted content for {len(document_data)} documents: {len(full_content)} chars")
+            
+            # Debug: Log the actual content returned
+            if full_content:
+                content_preview = full_content[:500] if full_content else "EMPTY"
+                self.logger.info(f"Returned content preview: {content_preview}...")
+                return full_content
+            else:
+                self.logger.warning("No content found in documents")
+                if self.researcher.verbose:
+                    await stream_output(
+                        "logs",
+                        "no_local_content",
+                        f"🤷 No content found in local documents...",
+                        self.researcher.websocket,
+                    )
+                return ""
+            
+        except Exception as e:
+            self.logger.error(f"Error during local search: {e}", exc_info=True)
+            return ""

@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict, List
+from typing import Dict, List, Any, Optional
 import time
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, File, UploadFile, BackgroundTasks
@@ -45,12 +45,11 @@ logging.basicConfig(
 class ResearchRequest(BaseModel):
     task: str
     report_type: str
-    report_source: str
-    tone: str
-    headers: dict | None = None
-    repo_name: str
-    branch_name: str
-    generate_in_background: bool = True
+    report_source: str = "web"
+    source_urls: List[str] = []
+    document_urls: List[str] = []
+    tone: str = "Objective"
+    headers: Dict[str, str] = {}
 
 
 class ConfigRequest(BaseModel):
@@ -70,6 +69,11 @@ class ConfigRequest(BaseModel):
     SEARX_URL: str = ''
     XAI_API_KEY: str
     DEEPSEEK_API_KEY: str
+
+
+class LocalChatRequest(BaseModel):
+    message: str
+    chatHistory: List[Dict[str, str]] = []
 
 
 # App initialization
@@ -126,8 +130,8 @@ async def write_report(research_request: ResearchRequest, research_id: str = Non
         task=research_request.task,
         report_type=research_request.report_type,
         report_source=research_request.report_source,
-        source_urls=[],
-        document_urls=[],
+        source_urls=research_request.source_urls,
+        document_urls=research_request.document_urls,
         tone=Tone[research_request.tone],
         websocket=None,
         stream_output=None,
@@ -191,6 +195,23 @@ async def upload_file(file: UploadFile = File(...)):
     return await handle_file_upload(file, DOC_PATH)
 
 
+@app.delete("/files/clear")
+async def clear_all_files():
+    """Clear all files from the documents directory"""
+    try:
+        if os.path.exists(DOC_PATH):
+            for filename in os.listdir(DOC_PATH):
+                file_path = os.path.join(DOC_PATH, filename)
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+                    print(f"Deleted file: {file_path}")
+        print(f"All files cleared from {DOC_PATH}")
+        return {"message": "All files cleared successfully"}
+    except Exception as e:
+        print(f"Error clearing files: {e}")
+        return {"message": f"Error clearing files: {str(e)}"}
+
+
 @app.delete("/files/{filename}")
 async def delete_file(filename: str):
     return await handle_file_deletion(filename, DOC_PATH)
@@ -203,3 +224,69 @@ async def websocket_endpoint(websocket: WebSocket):
         await handle_websocket_communication(websocket, manager)
     except WebSocketDisconnect:
         await manager.disconnect(websocket)
+
+
+@app.post("/api/local-chat")
+async def local_chat(request: LocalChatRequest):
+    """Handle local chat with uploaded documents"""
+    try:
+        from gpt_researcher import GPTResearcher
+        from openai import AsyncOpenAI
+        
+        # Initialize researcher for local document analysis
+        researcher = GPTResearcher(
+            query=request.message,
+            report_type="research_report",
+            report_source="local",  # Use local search
+            websocket=None,
+            verbose=False
+        )
+        
+        # Conduct research on local documents
+        context = await researcher.conduct_research()
+        
+        # Generate a conversational response instead of a full report
+        client = AsyncOpenAI()
+        
+        # Build conversation context
+        conversation_context = ""
+        if request.chatHistory:
+            conversation_context = "\n".join([
+                f"{'User' if msg.get('type') == 'user' else 'Assistant'}: {msg.get('content', '')}"
+                for msg in request.chatHistory[-5:]  # Last 5 messages
+            ])
+        
+        # Create a prompt for conversational response
+        system_prompt = f"""You are a helpful AI assistant analyzing uploaded documents. 
+        You have access to the following document content:
+        
+        {context}
+        
+        Previous conversation:
+        {conversation_context}
+        
+        Provide a natural, conversational response to the user's question based on the document content. 
+        Be concise but informative. If the information isn't in the documents, say so clearly.
+        Keep the tone friendly and helpful."""
+        
+        response = await client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": request.message}
+            ],
+            temperature=0.7,
+            max_tokens=1000
+        )
+        
+        return {
+            "response": response.choices[0].message.content,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error in local chat: {e}")
+        return {
+            "response": "I apologize, but I encountered an error while processing your message. Please make sure you have uploaded documents and try again.",
+            "status": "error"
+        }

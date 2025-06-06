@@ -31,6 +31,7 @@ async def generate_sub_queries(
     cfg: Config,
     cost_callback: callable = None,
     prompt_family: type[PromptFamily] | PromptFamily = PromptFamily,
+    document_context: str = "",
     **kwargs
 ) -> List[str]:
     """
@@ -45,6 +46,7 @@ async def generate_sub_queries(
         cfg: Configuration object
         cost_callback: Callback for cost calculation
         prompt_family: Family of prompts
+        document_context: Context from uploaded documents
 
     Returns:
         A list of sub-queries
@@ -55,6 +57,7 @@ async def generate_sub_queries(
         report_type,
         max_iterations=cfg.max_iterations or 3,
         context=context,
+        document_context=document_context,
     )
 
     try:
@@ -100,28 +103,28 @@ async def generate_sub_queries(
 
 async def plan_research_outline(
     query: str,
-    search_results: List[Dict[str, Any]],
+    search_results: list,
     agent_role_prompt: str,
-    cfg: Config,
-    parent_query: str,
-    report_type: str,
+    cfg,
+    parent_query: str = "",
+    report_type: str = "",
     cost_callback: callable = None,
+    document_context: str = "",
     **kwargs
-) -> List[str]:
-    """
-    Plan the research outline by generating sub-queries.
-
+) -> list[str]:
+    """Plan the research outline for the given query.
     Args:
-        query: Original query
-        retriever: Retriever instance
-        agent_role_prompt: Agent role prompt
+        query (str): The main query to research
+        search_results (list): Initial search results from the web
+        agent_role_prompt (str): The agent role prompt
         cfg: Configuration object
-        parent_query: Parent query
-        report_type: Report type
-        cost_callback: Callback for cost calculation
-
+        parent_query (str): Parent query if this is a sub-query
+        report_type (str): Type of report being generated
+        cost_callback (callable): Callback to track costs
+        document_context (str): Context from uploaded documents
+        **kwargs: Additional keyword arguments
     Returns:
-        A list of sub-queries
+        list[str]: List of research sub-queries
     """
 
     sub_queries = await generate_sub_queries(
@@ -131,6 +134,7 @@ async def plan_research_outline(
         search_results,
         cfg,
         cost_callback,
+        document_context=document_context,
         **kwargs
     )
 

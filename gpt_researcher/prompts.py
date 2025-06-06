@@ -42,6 +42,7 @@ class PromptFamily:
         report_type: str,
         max_iterations: int = 3,
         context: List[Dict[str, Any]] = [],
+        document_context: str = "",
     ):
         """Generates the search queries prompt for the given question.
         Args:
@@ -50,6 +51,7 @@ class PromptFamily:
             report_type (str): The report type
             max_iterations (int): The maximum number of search queries to generate
             context (str): Context for better understanding of the task with realtime web information
+            document_context (str): Context from uploaded documents to inform research queries
 
         Returns: str: The search queries prompt for the given question
         """
@@ -62,22 +64,59 @@ class PromptFamily:
         else:
             task = question
 
-        context_prompt = f"""
-You are a seasoned research assistant tasked with generating search queries to find relevant information for the following task: "{task}".
-Context: {context}
+        # Web search context prompt
+        web_context_prompt = f"""
+Web Search Context: {context}
 
 Use this context to inform and refine your search queries. The context provides real-time web information that can help you generate more specific and relevant queries. Consider any current events, recent developments, or specific details mentioned in the context that could enhance the search queries.
 """ if context else ""
 
+        # Document context prompt
+        document_context_prompt = f"""
+Document Context (from uploaded files): 
+{document_context}
+
+IMPORTANT: You have access to document content above. Your research queries should COMPLEMENT this existing information, not duplicate it. Focus on:
+- Finding recent developments or updates related to topics in the documents
+- Discovering broader context or industry trends that relate to the document content
+- Researching comparative information or alternative perspectives
+- Looking for real-world applications, case studies, or examples
+- Finding quantitative data, statistics, or market research to supplement the document insights
+
+CONVERSATION CONTEXT ANALYSIS:
+- If the task contains references like "this company", "that person", "the organization", etc., use the document content to identify the specific entity being referenced
+- If there's conversation context in the task, extract the specific entities (companies, people, products) mentioned in previous messages
+- Create research queries that are specific to the identified entities, not generic terms
+
+Create research queries that will EXTEND knowledge beyond what's already in the documents and resolve any conversational references to specific entities.
+""" if document_context else ""
+
         dynamic_example = ", ".join([f'"query {i+1}"' for i in range(max_iterations)])
 
-        return f"""Write {max_iterations} google search queries to search online that form an objective opinion from the following task: "{task}"
+        return f"""You are a strategic research assistant tasked with generating {max_iterations} targeted google search queries for the following research task: "{task}"
 
 Assume the current date is {datetime.now(timezone.utc).strftime('%B %d, %Y')} if required.
 
-{context_prompt}
+{web_context_prompt}
+
+{document_context_prompt}
+
+GUIDELINES:
+- FIRST: Analyze the task for conversational references (like "this company", "that person", "the organization")
+- If you find such references, use the document context and any conversation history to identify the SPECIFIC entity being referenced
+- Replace vague references with specific entity names in your research queries
+- If document context is provided, create queries that discover NEW information beyond what's in the documents
+- Focus on recent developments, trends, statistics, and external perspectives
+- Avoid queries that would simply repeat information already available in the documents
+- Be specific and actionable for effective web research
+- Consider current events and recent developments in your search terms
+
+EXAMPLE:
+- If task is "tell me about this company" and document mentions "Culture Amp", create queries about Culture Amp specifically
+- If task is "research their competitors" and context shows discussion about Apple, research Apple's competitors
+
 You must respond with a list of strings in the following format: [{dynamic_example}].
-The response should contain ONLY the list.
+The response should contain ONLY the list, no other text.
 """
 
     @staticmethod

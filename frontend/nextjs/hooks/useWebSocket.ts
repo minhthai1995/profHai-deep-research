@@ -4,7 +4,7 @@ import { getHost } from '../helpers/getHost';
 
 export const useWebSocket = (
   setOrderedData: React.Dispatch<React.SetStateAction<Data[]>>,
-  setAnswer: React.Dispatch<React.SetStateAction<string>>, 
+  setAnswer: React.Dispatch<React.SetStateAction<string>>,
   setLoading: React.Dispatch<React.SetStateAction<boolean>>,
   setShowHumanFeedback: React.Dispatch<React.SetStateAction<boolean>>,
   setQuestionForHuman: React.Dispatch<React.SetStateAction<boolean | true>>,
@@ -26,7 +26,7 @@ export const useWebSocket = (
     if (heartbeatInterval.current) {
       clearInterval(heartbeatInterval.current);
     }
-    
+
     // Start new heartbeat
     heartbeatInterval.current = window.setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) {
@@ -37,12 +37,12 @@ export const useWebSocket = (
 
   const initializeWebSocket = useCallback((promptValue: string, chatBoxSettings: ChatBoxSettings) => {
     console.log('🔌 WebSocket initialization called with:', { promptValue, chatBoxSettings });
-    
+
     const storedConfig = localStorage.getItem('apiVariables');
     const apiVariables = storedConfig ? JSON.parse(storedConfig) : {};
 
     if (!socket && typeof window !== 'undefined') {
-      
+
       let fullHost = getHost()
       const protocol = fullHost.includes('https') ? 'wss:' : 'ws:'
       const cleanHost = fullHost.replace('http://', '').replace('https://', '')
@@ -56,19 +56,19 @@ export const useWebSocket = (
       newSocket.onopen = () => {
         console.log('✅ WebSocket connected successfully');
         console.log('📋 Sending research request with chatBoxSettings:', chatBoxSettings);
-        
+
         const domainFilters = JSON.parse(localStorage.getItem('domainFilters') || '[]');
         const domains = domainFilters ? domainFilters.map((domain: any) => domain.value) : [];
         const { report_type, report_source, tone } = chatBoxSettings;
-        
-        let data = "start " + JSON.stringify({ 
+
+        let data = "start " + JSON.stringify({
           task: promptValue,
-          report_type, 
-          report_source, 
+          report_type,
+          report_source,
           tone,
           query_domains: domains
         });
-        
+
         console.log('📤 Sending WebSocket message:', data);
         newSocket.send(data);
         startHeartbeat(newSocket);
@@ -76,7 +76,7 @@ export const useWebSocket = (
 
       newSocket.onmessage = (event) => {
         console.log('📥 WebSocket message received:', event.data);
-        
+
         try {
           // Handle ping response
           if (event.data === 'pong') {
@@ -87,7 +87,7 @@ export const useWebSocket = (
           // Try to parse JSON data
           const data = JSON.parse(event.data);
           console.log('📊 Parsed WebSocket data:', data);
-          
+
           if (data.type === 'human_feedback' && data.content === 'request') {
             console.log('👤 Human feedback requested');
             setQuestionForHuman(data.output);

@@ -37,9 +37,9 @@ export const GPTResearcher = ({
   const [showResult, setShowResult] = useState(false);
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);
-  const [chatBoxSettings, setChatBoxSettings] = useState<ChatBoxSettings>({ 
-    report_source: 'web', 
-    report_type: 'research_report', 
+  const [chatBoxSettings, setChatBoxSettings] = useState<ChatBoxSettings>({
+    report_source: 'web',
+    report_type: 'research_report',
     tone: 'Objective',
     domains: [],
     defaultReportType: 'research_report'
@@ -94,7 +94,7 @@ export const GPTResearcher = ({
 
       const questionData: QuestionData = { type: 'question', content: message };
       setOrderedData(prevOrder => [...prevOrder, questionData]);
-      
+
       socket.send(`chat${JSON.stringify({ message })}`);
     }
   };
@@ -109,17 +109,17 @@ export const GPTResearcher = ({
 
     const storedConfig = localStorage.getItem('apiVariables');
     const apiVariables = storedConfig ? JSON.parse(storedConfig) : { LANGGRAPH_HOST_URL: '' };
-    
+
     // Use provided apiUrl if available
     if (apiUrl) {
       apiVariables.API_URL = apiUrl;
     }
-    
+
     // Use provided apiKey if available
     if (apiKey) {
       apiVariables.API_KEY = apiKey;
     }
-    
+
     initializeWebSocket(newQuestion, chatBoxSettings);
 
   };
@@ -151,15 +151,15 @@ export const GPTResearcher = ({
     setShowResult(false);
     setPromptValue("");
     setIsStopped(false);
-    
+
     setQuestion("");
     setAnswer("");
     setOrderedData([]);
     setAllLogs([]);
-    
+
     setShowHumanFeedback(false);
     setQuestionForHuman(false);
-    
+
     if (socket) {
       socket.close();
     }
@@ -169,7 +169,7 @@ export const GPTResearcher = ({
   useEffect(() => {
     const groupedData = preprocessOrderedData(orderedData);
     const statusReports = ["agent_generated", "starting_research", "planning_research", "error"];
-    
+
     const newLogs = groupedData.reduce((acc: any[], data) => {
       if (data.type === 'accordionBlock') {
         const logs = data.items.map((item: any, subIndex: any) => ({
@@ -179,7 +179,7 @@ export const GPTResearcher = ({
           key: `${item.type}-${item.content}-${subIndex}`,
         }));
         return [...acc, ...logs];
-      } 
+      }
       else if (statusReports.includes(data.content)) {
         return [...acc, {
           header: data.content,
@@ -190,14 +190,14 @@ export const GPTResearcher = ({
       }
       return acc;
     }, []);
-    
+
     setAllLogs(newLogs);
   }, [orderedData]);
 
   const handleScroll = useCallback(() => {
     const scrollPosition = window.scrollY + window.innerHeight;
     const nearBottom = scrollPosition >= document.documentElement.scrollHeight - 100;
-    
+
     const isPageScrollable = document.documentElement.scrollHeight > window.innerHeight;
     setShowScrollButton(isPageScrollable && !nearBottom);
   }, []);
@@ -214,7 +214,7 @@ export const GPTResearcher = ({
 
     window.addEventListener('scroll', handleScroll);
     window.addEventListener('resize', handleScroll);
-    
+
     return () => {
       if (mainContentElement) {
         resizeObserver.unobserve(mainContentElement);
@@ -234,7 +234,7 @@ export const GPTResearcher = ({
 
   return (
     <>
-      <Header 
+      <Header
         loading={loading}
         isStopped={isStopped}
         showResult={showResult}
@@ -296,18 +296,18 @@ export const GPTResearcher = ({
           onClick={scrollToBottom}
           className="fixed bottom-8 right-8 flex items-center justify-center w-12 h-12 text-white bg-[rgb(168,85,247)] rounded-full hover:bg-[rgb(147,51,234)] transform hover:scale-105 transition-all duration-200 shadow-lg z-50"
         >
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            className="h-6 w-6" 
-            fill="none" 
-            viewBox="0 0 24 24" 
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
             stroke="currentColor"
           >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth={2} 
-              d="M19 14l-7 7m0 0l-7-7m7 7V3" 
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 14l-7 7m0 0l-7-7m7 7V3"
             />
           </svg>
         </button>

@@ -10,21 +10,21 @@ import { preprocessOrderedData } from '../utils/dataProcessing';
 import { ResearchResults } from '../components/ResearchResults';
 
 import Header from "@/components/Header";
-import Hero from "@/components/Hero";
 import Footer from "@/components/Footer";
 import InputArea from "@/components/ResearchBlocks/elements/InputArea";
 import HumanFeedback from "@/components/HumanFeedback";
 import LoadingDots from "@/components/LoadingDots";
 import ResearchSidebar from "@/components/ResearchSidebar";
+import ChatInterface from "@/components/ChatInterface";
 
 export default function Home() {
   const [promptValue, setPromptValue] = useState("");
   const [showResult, setShowResult] = useState(false);
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);
-  const [chatBoxSettings, setChatBoxSettings] = useState<ChatBoxSettings>({ 
-    report_source: 'web', 
-    report_type: 'research_report', 
+  const [chatBoxSettings, setChatBoxSettings] = useState<ChatBoxSettings>({
+    report_source: 'web',
+    report_type: 'research_report',
     tone: 'Objective',
     domains: [],
     defaultReportType: 'research_report'
@@ -40,11 +40,17 @@ export default function Home() {
   const mainContentRef = useRef<HTMLDivElement>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const { 
-    history, 
-    saveResearch, 
-    getResearchById, 
-    deleteResearch 
+  // New state for local chat functionality
+  const [isLocalChatMode, setIsLocalChatMode] = useState(false);
+  const [chatHistory, setChatHistory] = useState<Array<{ id: string, type: 'user' | 'assistant', content: string }>>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
+
+  const {
+    history,
+    saveResearch,
+    getResearchById,
+    deleteResearch,
+    clearHistory
   } = useResearchHistory();
 
   const { socket, initializeWebSocket } = useWebSocket(
@@ -71,73 +77,77 @@ export default function Home() {
       setAnswer("");
 
       const questionData: QuestionData = { type: 'question', content: message };
-      setOrderedData(prevOrder => [...prevOrder, questionData]);
-      
+      setOrderedData((prevOrder: Data[]) => [...prevOrder, questionData]);
+
       socket.send(`chat${JSON.stringify({ message })}`);
     }
   };
 
-  const handleDisplayResult = async (newQuestion: string) => {
+  const handleDisplayResult = async (newQuestion: string, settings?: ChatBoxSettings) => {
     console.log('🔍 Starting research with question:', newQuestion);
-    console.log('📋 Current chatBoxSettings:', chatBoxSettings);
-    
+
+    // Use passed settings or fall back to current state
+    const effectiveSettings = settings || chatBoxSettings;
+    console.log('📋 Effective chatBoxSettings:', effectiveSettings);
+
     setShowResult(true);
     setLoading(true);
     setQuestion(newQuestion);
     setPromptValue("");
     setAnswer("");
-    setOrderedData((prevOrder) => [...prevOrder, { type: 'question', content: newQuestion }]);
+    setOrderedData((prevOrder: Data[]) => [...prevOrder, { type: 'question', content: newQuestion }]);
 
     const storedConfig = localStorage.getItem('apiVariables');
     const apiVariables = storedConfig ? JSON.parse(storedConfig) : {};
     const langgraphHostUrl = apiVariables.LANGGRAPH_HOST_URL;
 
     console.log('🔧 Config check:', {
-      report_type: chatBoxSettings.report_type,
+      report_type: effectiveSettings.report_type,
+      report_source: effectiveSettings.report_source,
       langgraphHostUrl: langgraphHostUrl,
       hasLangGraph: !!langgraphHostUrl
     });
 
-    if (chatBoxSettings.report_type === 'multi_agents' && langgraphHostUrl) {
+    if (effectiveSettings.report_type === 'multi_agents' && langgraphHostUrl) {
       console.log('🤖 Using LangGraph multi-agents path');
       try {
-        let { streamResponse, host, thread_id } = await startLanggraphResearch(newQuestion, chatBoxSettings.report_source, langgraphHostUrl);
+        let { streamResponse, host, thread_id } = await startLanggraphResearch(newQuestion, effectiveSettings.report_source, langgraphHostUrl);
         const langsmithGuiLink = `https://smith.langchain.com/studio/thread/${thread_id}?baseUrl=${host}`;
-        setOrderedData((prevOrder) => [...prevOrder, { type: 'langgraphButton', link: langsmithGuiLink }]);
+        setOrderedData((prevOrder: Data[]) => [...prevOrder, { type: 'langgraphButton', link: langsmithGuiLink }]);
 
         let previousChunk = null;
         for await (const chunk of streamResponse) {
           if (chunk.data.report != null && chunk.data.report != "Full report content here") {
-            setOrderedData((prevOrder) => [...prevOrder, { ...chunk.data, output: chunk.data.report, type: 'report' }]);
+            setOrderedData((prevOrder: Data[]) => [...prevOrder, { ...chunk.data, output: chunk.data.report, type: 'report' }]);
             setLoading(false);
           } else if (previousChunk) {
             const differences = findDifferences(previousChunk, chunk);
-            setOrderedData((prevOrder) => [...prevOrder, { type: 'differences', content: 'differences', output: JSON.stringify(differences) }]);
+            setOrderedData((prevOrder: Data[]) => [...prevOrder, { type: 'differences', content: 'differences', output: JSON.stringify(differences) }]);
           }
           previousChunk = chunk;
         }
       } catch (error) {
         console.error('❌ LangGraph research failed:', error);
         setLoading(false);
-        setOrderedData((prevOrder) => [...prevOrder, { 
-          type: 'error', 
-          content: 'LangGraph Error', 
-          output: `Failed to start LangGraph research: ${(error as Error).message}` 
+        setOrderedData((prevOrder: Data[]) => [...prevOrder, {
+          type: 'error',
+          content: 'LangGraph Error',
+          output: `Failed to start LangGraph research: ${(error as Error).message}`
         }]);
       }
     } else {
       console.log('🌐 Using WebSocket research path');
-      console.log('📡 Initializing WebSocket with:', { newQuestion, chatBoxSettings });
-      
+      console.log('📡 Initializing WebSocket with:', { newQuestion, effectiveSettings });
+
       try {
-        initializeWebSocket(newQuestion, chatBoxSettings);
+        initializeWebSocket(newQuestion, effectiveSettings);
       } catch (error) {
         console.error('❌ WebSocket initialization failed:', error);
         setLoading(false);
-        setOrderedData((prevOrder) => [...prevOrder, { 
-          type: 'error', 
-          content: 'WebSocket Error', 
-          output: `Failed to initialize WebSocket: ${(error as Error).message}` 
+        setOrderedData((prevOrder: Data[]) => [...prevOrder, {
+          type: 'error',
+          content: 'WebSocket Error',
+          output: `Failed to initialize WebSocket: ${(error as Error).message}`
         }]);
       }
     }
@@ -148,7 +158,7 @@ export default function Home() {
     setShowResult(false);
     setPromptValue("");
     setIsStopped(false);
-    
+
     // Clear previous research data
     setQuestion("");
     setAnswer("");
@@ -158,7 +168,7 @@ export default function Home() {
     // Reset feedback states
     setShowHumanFeedback(false);
     setQuestionForHuman(false);
-    
+
     // Clean up connections
     if (socket) {
       socket.close();
@@ -200,208 +210,233 @@ export default function Home() {
     setSidebarOpen(false);
   };
 
-  // Save completed research to history
-  useEffect(() => {
-    // Only save when research is complete and not loading
-    if (showResult && !loading && answer && question && orderedData.length > 0) {
-      // Check if this is a new research (not loaded from history)
-      const isNewResearch = !history.some(item => 
-        item.question === question && item.answer === answer
-      );
-      
-      if (isNewResearch) {
-        saveResearch(question, answer, orderedData);
-      }
-    }
-  }, [showResult, loading, answer, question, orderedData, history, saveResearch]);
-
-  // Handle selecting a research from history
+  // Load research from history
   const handleSelectResearch = (id: string) => {
     const research = getResearchById(id);
     if (research) {
-      setShowResult(true);
       setQuestion(research.question);
-      setPromptValue("");
       setAnswer(research.answer);
-      setOrderedData(research.orderedData);
+      setOrderedData(research.orderedData || []);
+      setShowResult(true);
       setLoading(false);
+      setIsStopped(false);
       setSidebarOpen(false);
     }
   };
 
-  // Toggle sidebar
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
-  /**
-   * Processes ordered data into logs for display
-   * Updates whenever orderedData changes
-   */
-  useEffect(() => {
-    const groupedData = preprocessOrderedData(orderedData);
-    const statusReports = ["agent_generated", "starting_research", "planning_research", "error"];
-    
-    const newLogs = groupedData.reduce((acc: any[], data) => {
-      // Process accordion blocks (grouped data)
-      if (data.type === 'accordionBlock') {
-        const logs = data.items.map((item: any, subIndex: any) => ({
-          header: item.content,
-          text: item.output,
-          metadata: item.metadata,
-          key: `${item.type}-${item.content}-${subIndex}`,
-        }));
-        return [...acc, ...logs];
-      } 
-      // Process status reports
-      else if (statusReports.includes(data.content)) {
-        return [...acc, {
-          header: data.content,
-          text: data.output,
-          metadata: data.metadata,
-          key: `${data.type}-${data.content}`,
-        }];
-      }
-      return acc;
-    }, []);
-    
-    setAllLogs(newLogs);
-  }, [orderedData]);
-
-  const handleScroll = useCallback(() => {
-    // Calculate if we're near bottom (within 100px)
-    const scrollPosition = window.scrollY + window.innerHeight;
-    const nearBottom = scrollPosition >= document.documentElement.scrollHeight - 100;
-    
-    // Show button if we're not near bottom and page is scrollable
-    const isPageScrollable = document.documentElement.scrollHeight > window.innerHeight;
-    setShowScrollButton(isPageScrollable && !nearBottom);
-  }, []);
-
-  // Add ResizeObserver to watch for content changes
-  useEffect(() => {
-    const mainContentElement = mainContentRef.current;
-    const resizeObserver = new ResizeObserver(() => {
-      handleScroll();
-    });
-
-    if (mainContentElement) {
-      resizeObserver.observe(mainContentElement);
-    }
-
-    window.addEventListener('scroll', handleScroll);
-    window.addEventListener('resize', handleScroll);
-    
-    return () => {
-      if (mainContentElement) {
-        resizeObserver.unobserve(mainContentElement);
-      }
-      resizeObserver.disconnect();
-      window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', handleScroll);
-    };
-  }, [handleScroll]);
-
+  // Add scroll-to-bottom functionality
   const scrollToBottom = () => {
-    window.scrollTo({
-      top: document.documentElement.scrollHeight,
-      behavior: 'smooth'
-    });
+    if (mainContentRef.current) {
+      mainContentRef.current.scrollTo({
+        top: mainContentRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
   };
 
+  // Show scroll button logic
+  useEffect(() => {
+    const handleScroll = () => {
+      if (mainContentRef.current) {
+        const { scrollTop, scrollHeight, clientHeight } = mainContentRef.current;
+        const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+        setShowScrollButton(!isNearBottom && scrollHeight > clientHeight);
+      }
+    };
+
+    const mainContent = mainContentRef.current;
+    if (mainContent) {
+      mainContent.addEventListener('scroll', handleScroll);
+      handleScroll(); // Check initial state
+    }
+
+    return () => {
+      if (mainContent) {
+        mainContent.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, [showResult, orderedData]);
+
+  // Save research to history when completed
+  useEffect(() => {
+    if (question && !loading && (answer || orderedData.length > 1)) {
+      saveResearch(question, answer, orderedData);
+    }
+  }, [question, answer, orderedData, loading, saveResearch]);
+
+  // Handle local chat with documents
+  const handleLocalChat = async (message: string) => {
+    if (!message.trim()) return;
+
+    // Add user message to chat history
+    const userMessage = {
+      id: Date.now().toString() + '-user',
+      type: 'user' as const,
+      content: message
+    };
+    setChatHistory(prev => [...prev, userMessage]);
+
+    try {
+      // Make API call to local chat endpoint (we'll create this)
+      const response = await fetch('/api/local-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message,
+          chatHistory: chatHistory.slice(-10) // Send last 10 messages for context
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get response');
+      }
+
+      const data = await response.json();
+
+      // Add assistant response to chat history
+      const assistantMessage = {
+        id: Date.now().toString() + '-assistant',
+        type: 'assistant' as const,
+        content: data.response
+      };
+      setChatHistory(prev => [...prev, assistantMessage]);
+
+    } catch (error) {
+      console.error('Error in local chat:', error);
+      const errorMessage = {
+        id: Date.now().toString() + '-error',
+        type: 'assistant' as const,
+        content: 'Sorry, I encountered an error while processing your message. Please try again.'
+      };
+      setChatHistory(prev => [...prev, errorMessage]);
+    }
+  };
+
+  // Check for uploaded files
+  const checkUploadedFiles = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/files/');
+      if (response.ok) {
+        const files = await response.json();
+        setUploadedFiles(files);
+        return files.length > 0;
+      }
+    } catch (error) {
+      console.error('Error checking uploaded files:', error);
+    }
+    return false;
+  };
+
+  // Check for uploaded files on component mount and periodically
+  useEffect(() => {
+    checkUploadedFiles();
+    const interval = setInterval(checkUploadedFiles, 5000); // Check every 5 seconds
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <main className="flex min-h-screen flex-col">
-      <Header 
-        loading={loading}
-        isStopped={isStopped}
-        showResult={showResult}
-        onStop={handleStopResearch}
-        onNewResearch={handleStartNewResearch}
-      />
-      
+    <main className="app-container flex min-h-screen flex-col bg-gray-50 dark:bg-gray-900">
+      <Header />
+
+      {/* Research History Sidebar */}
       <ResearchSidebar
-        history={history}
-        onSelectResearch={handleSelectResearch}
-        onNewResearch={handleStartNewResearch}
-        onDeleteResearch={deleteResearch}
         isOpen={sidebarOpen}
         toggleSidebar={toggleSidebar}
+        history={history}
+        onSelectResearch={handleSelectResearch}
+        onDeleteResearch={deleteResearch}
+        onNewResearch={handleStartNewResearch}
+        onClearHistory={clearHistory}
       />
-      
-      <div 
-        ref={mainContentRef}
-        className="min-h-[100vh] pt-[120px]"
-      >
-        {!showResult && (
-          <Hero
-            promptValue={promptValue}
-            setPromptValue={setPromptValue}
-            handleDisplayResult={handleDisplayResult}
-          />
-        )}
 
-        {showResult && (
-          <div className="flex h-full w-full grow flex-col justify-between">
-            <div className="container w-full space-y-2">
-              <div className="container space-y-2 task-components">
-                <ResearchResults
-                  orderedData={orderedData}
-                  answer={answer}
-                  allLogs={allLogs}
-                  chatBoxSettings={chatBoxSettings}
-                  handleClickSuggestion={handleClickSuggestion}
-                />
+      <div className="flex flex-1 pt-[80px]" ref={mainContentRef}>
+        <div className="flex-1 flex flex-col">
+          {!showResult ? (
+            <ChatInterface
+              promptValue={promptValue}
+              setPromptValue={setPromptValue}
+              handleDisplayResult={handleDisplayResult}
+              chatBoxSettings={chatBoxSettings}
+              setChatBoxSettings={setChatBoxSettings}
+              onToggleSidebar={toggleSidebar}
+              onLocalChat={handleLocalChat}
+              isLocalChatMode={isLocalChatMode}
+              setIsLocalChatMode={setIsLocalChatMode}
+              chatHistory={chatHistory}
+              isResearching={loading}
+            />
+          ) : (
+            <div className="flex h-full w-full grow flex-col justify-between">
+              <div className="container w-full space-y-2">
+                <div className="container space-y-2 task-components">
+                  <ResearchResults
+                    orderedData={orderedData}
+                    answer={answer}
+                    allLogs={allLogs}
+                    chatBoxSettings={chatBoxSettings}
+                    handleClickSuggestion={handleClickSuggestion}
+                  />
+                </div>
+
+                {showHumanFeedback && false && (
+                  <HumanFeedback
+                    questionForHuman={questionForHuman}
+                    websocket={socket}
+                    onFeedbackSubmit={handleFeedbackSubmit}
+                  />
+                )}
+
+                <div className="pt-1 sm:pt-2" ref={chatContainerRef}></div>
               </div>
-
-              {showHumanFeedback && false &&(
-                <HumanFeedback
-                  questionForHuman={questionForHuman}
-                  websocket={socket}
-                  onFeedbackSubmit={handleFeedbackSubmit}
-                />
-              )}
-
-              <div className="pt-1 sm:pt-2" ref={chatContainerRef}></div>
+              <div id="input-area" className="container px-4 lg:px-0">
+                {loading ? (
+                  <LoadingDots />
+                ) : (
+                  <InputArea
+                    promptValue={promptValue}
+                    setPromptValue={setPromptValue}
+                    handleSubmit={handleChat}
+                    handleSecondary={handleDisplayResult}
+                    disabled={loading}
+                    reset={reset}
+                    isStopped={isStopped}
+                  />
+                )}
+              </div>
             </div>
-            <div id="input-area" className="container px-4 lg:px-0">
-              {loading ? (
-                <LoadingDots />
-              ) : (
-                <InputArea
-                  promptValue={promptValue}
-                  setPromptValue={setPromptValue}
-                  handleSubmit={handleChat}
-                  handleSecondary={handleDisplayResult}
-                  disabled={loading}
-                  reset={reset}
-                  isStopped={isStopped}
-                />
-              )}
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
+
+      {/* Scroll to bottom button */}
       {showScrollButton && showResult && (
         <button
           onClick={scrollToBottom}
-          className="fixed bottom-8 right-8 flex items-center justify-center w-12 h-12 text-white bg-gradient-to-br from-teal-500 to-teal-600 rounded-full hover:from-teal-600 hover:to-teal-700 transform hover:scale-105 transition-all duration-200 shadow-lg z-50 backdrop-blur-sm border border-teal-400/20"
+          className="fixed bottom-8 right-8 flex items-center justify-center w-12 h-12 text-white bg-teal-500 rounded-full hover:bg-teal-600 transform hover:scale-105 transition-all duration-200 shadow-lg z-50"
         >
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            className="h-6 w-6" 
-            fill="none" 
-            viewBox="0 0 24 24" 
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
             stroke="currentColor"
           >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth={2} 
-              d="M19 14l-7 7m0 0l-7-7m7 7V3" 
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 14l-7 7m0 0l-7-7m7 7V3"
             />
           </svg>
         </button>
       )}
+
       <Footer setChatBoxSettings={setChatBoxSettings} chatBoxSettings={chatBoxSettings} />
     </main>
   );

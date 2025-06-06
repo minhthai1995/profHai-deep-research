@@ -46,7 +46,7 @@ export const ResearchResults: React.FC<ResearchResultsProps> = ({
   const sourceComponents = groupedData
     .filter(data => data.type === 'sourceBlock')
     .map((data, index) => (
-      <Sources key={`sourceBlock-${index}`} sources={data.items}/>
+      <Sources key={`sourceBlock-${index}`} sources={data.items} />
     ));
 
   const imageComponents = groupedData
