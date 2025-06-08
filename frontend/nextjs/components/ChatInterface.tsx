@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence } from "framer-motion";
 import { ChatBoxSettings } from "@/types/data";
@@ -12,11 +12,16 @@ interface ChatInterfaceProps {
     chatBoxSettings: ChatBoxSettings;
     setChatBoxSettings: React.Dispatch<React.SetStateAction<ChatBoxSettings>>;
     onToggleSidebar: () => void;
-    onLocalChat?: (message: string) => void;
+    onLocalChat?: (message: string, provider?: string, model?: string) => void;
     isLocalChatMode?: boolean;
     setIsLocalChatMode?: (mode: boolean) => void;
     chatHistory?: Array<{ id: string, type: 'user' | 'assistant', content: string }>;
     isResearching?: boolean;
+    isLocalChatLoading?: boolean;
+    initialUploadedFiles?: UploadedFile[];
+    selectedProvider?: string;
+    selectedModel?: string;
+    selectedLocalProvider?: string;
 }
 
 interface UploadedFile {
@@ -29,6 +34,18 @@ interface ModeSelectionProps {
     selectedMode: 'local' | 'research';
     onModeChange: (mode: 'local' | 'research') => void;
     hasDocuments: boolean;
+}
+
+interface LocalProviderToggleProps {
+    selectedLocalProvider: 'openai' | 'ollama';
+    onLocalProviderChange: (provider: 'openai' | 'ollama') => void;
+}
+
+interface ModelSelectionProps {
+    selectedProvider: 'openai' | 'ollama';
+    onProviderChange: (provider: 'openai' | 'ollama') => void;
+    selectedModel: string;
+    onModelChange: (model: string) => void;
 }
 
 const ModeSelection: React.FC<ModeSelectionProps> = ({ selectedMode, onModeChange, hasDocuments }) => {
@@ -75,6 +92,199 @@ const ModeSelection: React.FC<ModeSelectionProps> = ({ selectedMode, onModeChang
     );
 };
 
+const ModelSelection: React.FC<ModelSelectionProps> = ({
+    selectedProvider,
+    onProviderChange,
+    selectedModel,
+    onModelChange
+}) => {
+    const openaiModels = useMemo(() => [
+        { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Fast & Efficient)' },
+        { id: 'gpt-4o', name: 'GPT-4o (Advanced)' },
+        { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
+        { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo' }
+    ], []);
+
+    const ollamaModels = useMemo(() => [
+        { id: 'llama3.3:70b', name: 'Llama 3.3 70B (High Performance)' },
+        { id: 'llama3.2:3b', name: 'Llama 3.2 3B (Fast)' },
+        { id: 'mistral:7b', name: 'Mistral 7B (Balanced)' },
+        { id: 'phi3:mini', name: 'Phi-3 Mini (Lightweight)' },
+        { id: 'deepseek-r1:7b', name: 'DeepSeek R1 7B (Reasoning)' },
+        { id: 'gemma2:9b', name: 'Gemma 2 9B (Google)' }
+    ], []);
+
+    const currentModels = selectedProvider === 'openai' ? openaiModels : ollamaModels;
+
+    // Set default model when provider changes
+    useEffect(() => {
+        if (selectedProvider === 'openai' && !openaiModels.find(m => m.id === selectedModel)) {
+            onModelChange('gpt-4o-mini');
+        } else if (selectedProvider === 'ollama' && !ollamaModels.find(m => m.id === selectedModel)) {
+            onModelChange('llama3.2:3b');
+        }
+    }, [selectedProvider, selectedModel, onModelChange, openaiModels, ollamaModels]);
+
+    return (
+        <div className="w-full max-w-4xl mb-6">
+            {/* Provider Selection */}
+            <div className="flex bg-gray-800/50 backdrop-blur-sm rounded-xl p-1 mb-4 border border-gray-700/50">
+                <motion.button
+                    onClick={() => onProviderChange('openai')}
+                    className={`flex-1 px-6 py-3 rounded-lg text-sm font-medium transition-all duration-300 ${selectedProvider === 'openai'
+                        ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg'
+                        : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+                        }`}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                >
+                    <div className="flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9" />
+                        </svg>
+                        OpenAI (Internet)
+                    </div>
+                    <div className="text-xs text-gray-300 mt-1">Cloud-based models</div>
+                </motion.button>
+
+                <motion.button
+                    onClick={() => onProviderChange('ollama')}
+                    className={`flex-1 px-6 py-3 rounded-lg text-sm font-medium transition-all duration-300 ${selectedProvider === 'ollama'
+                        ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg'
+                        : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+                        }`}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                >
+                    <div className="flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        Ollama (Local)
+                    </div>
+                    <div className="text-xs text-gray-300 mt-1">Privacy-first local models</div>
+                </motion.button>
+            </div>
+
+            {/* Model Selection */}
+            <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Select Model:
+                </label>
+                <select
+                    value={selectedModel}
+                    onChange={(e) => onModelChange(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                    {currentModels.map((model) => (
+                        <option key={model.id} value={model.id}>
+                            {model.name}
+                        </option>
+                    ))}
+                </select>
+
+                {/* Provider Info */}
+                <div className="mt-3 text-xs text-gray-400 flex items-center">
+                    {selectedProvider === 'openai' ? (
+                        <>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Using OpenAI cloud models - requires internet & API key
+                        </>
+                    ) : (
+                        <>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                            Using local Ollama models - private & offline. Ensure Ollama is running with: <code className="bg-gray-600 px-1 rounded">ollama serve</code>
+                        </>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const LocalProviderToggle: React.FC<LocalProviderToggleProps> = ({
+    selectedLocalProvider,
+    onLocalProviderChange
+}) => {
+    return (
+        <div className="w-full max-w-2xl mb-4">
+            <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50">
+                <label className="block text-sm font-medium text-gray-300 mb-3">
+                    Choose AI Provider for Local Document Chat:
+                </label>
+                <div className="flex bg-gray-700/50 rounded-lg p-1">
+                    <motion.button
+                        onClick={() => onLocalProviderChange('ollama')}
+                        className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-300 ${selectedLocalProvider === 'ollama'
+                            ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg'
+                            : 'text-gray-400 hover:text-white'
+                            }`}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                    >
+                        <div className="flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                            Ollama (Local)
+                        </div>
+                        <div className="text-xs text-gray-300 mt-1">Private & Offline</div>
+                    </motion.button>
+
+                    <motion.button
+                        onClick={() => onLocalProviderChange('openai')}
+                        className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-300 ${selectedLocalProvider === 'openai'
+                            ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg'
+                            : 'text-gray-400 hover:text-white'
+                            }`}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                    >
+                        <div className="flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9" />
+                            </svg>
+                            OpenAI (Cloud)
+                        </div>
+                        <div className="text-xs text-gray-300 mt-1">Advanced Models</div>
+                    </motion.button>
+                </div>
+
+                {/* Provider Info */}
+                <div className="mt-3 text-xs text-gray-400 flex items-start">
+                    {selectedLocalProvider === 'ollama' ? (
+                        <>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1 mt-0.5 text-purple-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                            <div>
+                                <strong>100% Private:</strong> Your documents stay on your machine. Requires Ollama running locally.
+                                <br />
+                                <code className="bg-gray-600 px-1 rounded text-xs">ollama serve</code> to start if needed.
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1 mt-0.5 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9" />
+                            </svg>
+                            <div>
+                                <strong>Advanced AI:</strong> Uses OpenAI&apos;s latest models for document analysis. Requires internet & API key.
+                                <br />
+                                Documents processed locally, only questions sent to OpenAI.
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const ChatInterface: React.FC<ChatInterfaceProps> = ({
     promptValue,
     setPromptValue,
@@ -87,11 +297,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setIsLocalChatMode,
     chatHistory,
     isResearching,
+    isLocalChatLoading,
+    initialUploadedFiles,
+    selectedProvider,
+    selectedModel,
+    selectedLocalProvider,
 }) => {
     const [selectedMode, setSelectedMode] = useState<'local' | 'research'>('local');
-    const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+    const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>(initialUploadedFiles || []);
     const [isUploading, setIsUploading] = useState(false);
     const [customQuestions, setCustomQuestions] = useState<string[]>(['']);
+    const [localProvider, setLocalProvider] = useState<'openai' | 'ollama'>('ollama');
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const host = getHost();
 
@@ -180,7 +396,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         if (selectedMode === 'local') {
             // Handle local chat
             if (onLocalChat) {
-                onLocalChat(promptValue);
+                // For local mode, use the local provider toggle selection
+                // and default to appropriate models for each provider
+                const localModel = localProvider === 'ollama' ? 'mistral:7b' : 'gpt-4o-mini';
+                onLocalChat(promptValue, localProvider, localModel);
                 setPromptValue('');
             }
         } else {
@@ -242,6 +461,44 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
+    // Update chat settings when provider or model changes
+    useEffect(() => {
+        setChatBoxSettings(prev => {
+            // For local mode, use the local provider toggle
+            // For research mode, use the global provider selection
+            const activeProvider = selectedMode === 'local' ? localProvider : selectedProvider;
+            const activeModel = selectedMode === 'local' && localProvider === 'ollama'
+                ? selectedModel
+                : selectedModel;
+
+            // Create the model configuration based on active provider
+            let smartLlm = '';
+            let fastLlm = '';
+
+            if (activeProvider === 'ollama') {
+                smartLlm = `ollama:${activeModel}`;
+                fastLlm = `ollama:${activeModel}`;
+            } else {
+                smartLlm = `openai:${activeModel}`;
+                fastLlm = `openai:${activeModel}`;
+            }
+
+            return {
+                ...prev,
+                smart_llm: smartLlm,
+                fast_llm: fastLlm,
+                report_source: selectedMode === 'local' ? 'local' : 'hybrid'
+            };
+        });
+    }, [selectedProvider, selectedModel, selectedMode, localProvider, setChatBoxSettings]);
+
+    // Update local uploadedFiles when initialUploadedFiles changes
+    useEffect(() => {
+        if (initialUploadedFiles) {
+            setUploadedFiles(initialUploadedFiles);
+        }
+    }, [initialUploadedFiles]);
+
     return (
         <div className="flex-1 flex flex-col items-center justify-center min-h-screen px-4 sm:px-6 lg:px-8">
             {/* Header */}
@@ -262,7 +519,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                         animate={{ opacity: 1, y: 0 }}
                         className="text-3xl sm:text-4xl lg:text-5xl font-bold text-center bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent"
                     >
-                        GPT Researcher
+                        AI Researcher
                     </motion.h1>
 
                     <div className="w-[100px]" /> {/* Spacer for balance */}
@@ -284,6 +541,48 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 onModeChange={setSelectedMode}
                 hasDocuments={uploadedFiles.length > 0}
             />
+
+            {/* Current Documents Display */}
+            {uploadedFiles.length > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="w-full max-w-2xl mb-4"
+                >
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                        <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-2 flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            📚 Current Session Documents ({uploadedFiles.length})
+                        </h3>
+                        <div className="grid gap-2">
+                            {uploadedFiles.slice(0, 5).map((file, index) => (
+                                <div key={index} className="flex items-center text-sm text-blue-700 dark:text-blue-300">
+                                    <span className="w-2 h-2 bg-blue-400 rounded-full mr-2 flex-shrink-0"></span>
+                                    <span className="truncate">{file.name}</span>
+                                </div>
+                            ))}
+                            {uploadedFiles.length > 5 && (
+                                <div className="text-xs text-blue-600 dark:text-blue-400 italic">
+                                    ...and {uploadedFiles.length - 5} more files
+                                </div>
+                            )}
+                        </div>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                            ✨ Ready for local chat or deep research!
+                        </p>
+                    </div>
+                </motion.div>
+            )}
+
+            {/* Local Provider Toggle - Only show in local mode with uploaded files */}
+            {selectedMode === 'local' && uploadedFiles.length > 0 && (
+                <LocalProviderToggle
+                    selectedLocalProvider={localProvider}
+                    onLocalProviderChange={setLocalProvider}
+                />
+            )}
 
             {/* File Upload Area */}
             <motion.div

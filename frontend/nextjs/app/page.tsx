@@ -44,6 +44,7 @@ export default function Home() {
   const [isLocalChatMode, setIsLocalChatMode] = useState(false);
   const [chatHistory, setChatHistory] = useState<Array<{ id: string, type: 'user' | 'assistant', content: string }>>([]);
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
+  const [isLocalChatLoading, setIsLocalChatLoading] = useState(false);
 
   const {
     history,
@@ -269,8 +270,11 @@ export default function Home() {
   }, [question, answer, orderedData, loading, saveResearch]);
 
   // Handle local chat with documents
-  const handleLocalChat = async (message: string) => {
+  const handleLocalChat = async (message: string, provider?: string, model?: string) => {
     if (!message.trim()) return;
+
+    // Set loading state
+    setIsLocalChatLoading(true);
 
     // Add user message to chat history
     const userMessage = {
@@ -281,7 +285,7 @@ export default function Home() {
     setChatHistory(prev => [...prev, userMessage]);
 
     try {
-      // Make API call to local chat endpoint (we'll create this)
+      // Make API call to local chat endpoint
       const response = await fetch('/api/local-chat', {
         method: 'POST',
         headers: {
@@ -289,7 +293,9 @@ export default function Home() {
         },
         body: JSON.stringify({
           message,
-          chatHistory: chatHistory.slice(-10) // Send last 10 messages for context
+          chatHistory: chatHistory.slice(-10), // Send last 10 messages for context
+          provider: provider || 'ollama',
+          model: model || 'mistral:7b'
         }),
       });
 
@@ -315,6 +321,8 @@ export default function Home() {
         content: 'Sorry, I encountered an error while processing your message. Please try again.'
       };
       setChatHistory(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLocalChatLoading(false);
     }
   };
 
@@ -323,7 +331,9 @@ export default function Home() {
     try {
       const response = await fetch('http://localhost:8000/files/');
       if (response.ok) {
-        const files = await response.json();
+        const data = await response.json();
+        // Backend returns {files: [...]} so we need to extract the files array
+        const files = data.files || [];
         setUploadedFiles(files);
         return files.length > 0;
       }
@@ -364,12 +374,18 @@ export default function Home() {
               handleDisplayResult={handleDisplayResult}
               chatBoxSettings={chatBoxSettings}
               setChatBoxSettings={setChatBoxSettings}
-              onToggleSidebar={toggleSidebar}
+              onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
               onLocalChat={handleLocalChat}
               isLocalChatMode={isLocalChatMode}
               setIsLocalChatMode={setIsLocalChatMode}
               chatHistory={chatHistory}
               isResearching={loading}
+              isLocalChatLoading={isLocalChatLoading}
+              initialUploadedFiles={Array.isArray(uploadedFiles) ? uploadedFiles.map(filename => ({
+                name: filename,
+                size: 0, // We don't have size info from backend
+                type: filename.split('.').pop() || 'unknown'
+              })) : []}
             />
           ) : (
             <div className="flex h-full w-full grow flex-col justify-between">

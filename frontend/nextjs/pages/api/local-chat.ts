@@ -7,11 +7,16 @@ interface LocalChatRequest {
         type: 'user' | 'assistant';
         content: string;
     }>;
+    provider?: string;
+    model?: string;
 }
 
 interface LocalChatResponse {
     response: string;
     status: string;
+    provider?: string;
+    model?: string;
+    error?: string;
 }
 
 export default async function handler(
@@ -23,7 +28,7 @@ export default async function handler(
     }
 
     try {
-        const { message, chatHistory }: LocalChatRequest = req.body;
+        const { message, chatHistory, provider, model }: LocalChatRequest = req.body;
 
         if (!message || !message.trim()) {
             return res.status(400).json({
@@ -32,7 +37,7 @@ export default async function handler(
             });
         }
 
-        // Forward request to Python backend
+        // Forward request to Python backend with provider and model
         const backendResponse = await fetch('http://127.0.0.1:8000/api/local-chat', {
             method: 'POST',
             headers: {
@@ -40,7 +45,9 @@ export default async function handler(
             },
             body: JSON.stringify({
                 message: message.trim(),
-                chatHistory: chatHistory || []
+                chatHistory: chatHistory || [],
+                provider: provider || 'ollama',
+                model: model || 'mistral:7b'
             }),
         });
 

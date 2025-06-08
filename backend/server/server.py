@@ -74,6 +74,8 @@ class ConfigRequest(BaseModel):
 class LocalChatRequest(BaseModel):
     message: str
     chatHistory: List[Dict[str, str]] = []
+    provider: str = "ollama"  # ollama or openai
+    model: str = "mistral:7b"  # model name
 
 
 # App initialization
@@ -228,25 +230,39 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.post("/api/local-chat")
 async def local_chat(request: LocalChatRequest):
-    """Handle local chat with uploaded documents"""
+    """Handle local chat with uploaded documents using selected provider"""
     try:
+        import os
         from gpt_researcher import GPTResearcher
-        from openai import AsyncOpenAI
+        
+        # Set environment variables based on provider selection
+        if request.provider == "ollama":
+            # Configure for Ollama
+            os.environ["LLM_PROVIDER"] = "ollama"
+            os.environ["SMART_LLM"] = f"ollama:{request.model}"
+            os.environ["FAST_LLM"] = f"ollama:{request.model}"
+            os.environ["OLLAMA_BASE_URL"] = "http://localhost:11434"
+            print(f"🔧 Configured for Ollama with model: {request.model}")
+        else:
+            # Configure for OpenAI
+            os.environ["LLM_PROVIDER"] = "openai"
+            os.environ["SMART_LLM"] = f"openai:{request.model}"
+            os.environ["FAST_LLM"] = f"openai:{request.model}"
+            print(f"🔧 Configured for OpenAI with model: {request.model}")
         
         # Initialize researcher for local document analysis
         researcher = GPTResearcher(
             query=request.message,
             report_type="research_report",
-            report_source="local",  # Use local search
+            report_source="local",  # Use local search only
             websocket=None,
             verbose=False
         )
         
         # Conduct research on local documents
+        print(f"📚 Conducting research on local documents...")
         context = await researcher.conduct_research()
-        
-        # Generate a conversational response instead of a full report
-        client = AsyncOpenAI()
+        print(f"✅ Research complete, context length: {len(context)} chars")
         
         # Build conversation context
         conversation_context = ""
@@ -269,24 +285,55 @@ async def local_chat(request: LocalChatRequest):
         Be concise but informative. If the information isn't in the documents, say so clearly.
         Keep the tone friendly and helpful."""
         
-        response = await client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": request.message}
-            ],
-            temperature=0.7,
-            max_tokens=1000
-        )
+        # Generate response using the configured provider
+        if request.provider == "ollama":
+            # Use Ollama through LangChain
+            from langchain_community.llms import Ollama
+            
+            llm = Ollama(
+                model=request.model,
+                base_url="http://localhost:11434"
+            )
+            
+            # Create the full prompt for Ollama
+            full_prompt = f"{system_prompt}\n\nUser: {request.message}\n\nAssistant:"
+            
+            response_content = await llm.ainvoke(full_prompt)
+            print(f"🤖 Ollama response generated using {request.model}")
+            
+        else:
+            # Use OpenAI
+            from openai import AsyncOpenAI
+            
+            client = AsyncOpenAI()
+            
+            response = await client.chat.completions.create(
+                model=request.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": request.message}
+                ],
+                temperature=0.7,
+                max_tokens=1000
+            )
+            
+            response_content = response.choices[0].message.content
+            print(f"🤖 OpenAI response generated using {request.model}")
         
         return {
-            "response": response.choices[0].message.content,
-            "status": "success"
+            "response": response_content,
+            "status": "success",
+            "provider": request.provider,
+            "model": request.model
         }
         
     except Exception as e:
-        print(f"Error in local chat: {e}")
+        print(f"❌ Error in local chat: {e}")
+        import traceback
+        traceback.print_exc()
+        
         return {
-            "response": "I apologize, but I encountered an error while processing your message. Please make sure you have uploaded documents and try again.",
-            "status": "error"
+            "response": f"I apologize, but I encountered an error while processing your message with {request.provider}. Please make sure you have uploaded documents and that {request.provider} is properly configured.",
+            "status": "error",
+            "error": str(e)
         }
