@@ -2,7 +2,6 @@
 
 Welcome to AI Researcher! This guide will walk you through everything you need to know to get the most out of your AI-powered research assistant.
 
-![AI Researcher Homepage](./docs/images/homepage.png)
 *Main interface of AI Researcher*
 
 ## 📋 Table of Contents
