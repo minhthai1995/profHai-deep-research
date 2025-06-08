@@ -1,459 +1,432 @@
-# 🤖 AI Researcher User Guide
+# 🔬 AI Researcher - User Guide
 
-Complete guide to using AI Researcher with local document analysis and advanced research capabilities.
+Welcome to AI Researcher! This guide will walk you through everything you need to know to get the most out of your AI-powered research assistant.
 
-## 📖 Table of Contents
+![AI Researcher Homepage](./docs/images/homepage.png)
+*Main interface of AI Researcher*
 
-1. [Quick Start Setup](#-quick-start-setup)
-2. [Interface Overview](#-interface-overview)  
-3. [Local Document Chat](#-local-document-chat)
-4. [Deep Research Mode](#-deep-research-mode)
-5. [Provider Selection](#-provider-selection)
-6. [File Management](#-file-management)
-7. [Advanced Features](#-advanced-features)
-8. [Troubleshooting](#-troubleshooting)
+## 📋 Table of Contents
+
+1. [Getting Started](#getting-started)
+2. [Understanding the Interface](#understanding-the-interface)
+3. [Local Chat Mode](#local-chat-mode)
+4. [Deep Research Mode](#deep-research-mode)
+5. [Provider Selection (Ollama vs OpenAI)](#provider-selection)
+6. [File Management](#file-management)
+7. [Advanced Features](#advanced-features)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
-## 🚀 Quick Start Setup
+## 🚀 Getting Started
 
 ### Prerequisites
+- Python 3.8+
+- Node.js 18+
+- Ollama (for local AI models)
+- OpenAI API key (for cloud models)
 
-- **Node.js** 18+ and **npm**
-- **Python** 3.8+ with pip
-- **4GB+ RAM** (8GB+ recommended for larger models)
-
-### Installation Steps
-
-1. **Clone and Setup**
+### Quick Setup
+1. **Clone and install dependencies:**
    ```bash
-   git clone https://github.com/assafelovic/gpt-researcher.git
+   git clone https://github.com/assafelovic/gpt-researcher
    cd gpt-researcher
-   npm install
    pip install -r requirements.txt
+   cd frontend/nextjs && npm install
    ```
 
-2. **Configure Environment**
+2. **Configure environment:**
    ```bash
+   # Copy and edit your .env file
    cp .env.example .env
-   # Edit .env with your API keys
+   # Add your API keys and settings
    ```
 
-3. **For Local Mode (Ollama)**
+3. **Start the services:**
    ```bash
-   chmod +x setup_ollama.sh
-   ./setup_ollama.sh
+   # Terminal 1: Start backend
+   uvicorn backend.server.server:app --host=0.0.0.0 --port=8000 --reload
+
+   # Terminal 2: Start frontend  
+   cd frontend/nextjs && npm run dev
    ```
 
-4. **Start Services**
-   ```bash
-   # Terminal 1: Backend
-   python -m uvicorn backend.server.server:app --reload
-
-   # Terminal 2: Frontend  
-   npm run dev
-   ```
-
-5. **Access Application**
-   Open [http://localhost:3000](http://localhost:3000)
+4. **Access the application:**
+   Open `http://localhost:3000` in your browser
 
 ---
 
-## 🎛️ Interface Overview
+## 🎯 Understanding the Interface
 
-![Interface Overview](images/interface-overview.png)
+*Main components of the AI Researcher interface*
 
-### Main Components
+### Key Components
 
-1. **Header Section**
-   - **AI Researcher** logo and title
-   - **History** button (toggle sidebar)
-   - Mode selection indicators
-
-2. **Mode Selection**
-   - **Local Chat**: Document-focused conversations
-   - **Deep Research**: Internet + document research
-   - Automatic enable/disable based on uploaded files
-
-3. **Document Area**
-   - **Current Session Documents**: Shows uploaded files
-   - **File Upload Zone**: Drag & drop interface
-   - **File Management**: Individual file removal
-
-4. **Provider Selection** (when applicable)
-   - **Local Chat Mode**: Toggle between Ollama/OpenAI
-   - **Deep Research Mode**: Global provider selection
-
-5. **Input Area**
-   - **Chat Input**: Multi-line text area
-   - **Action Buttons**: Mode switching, submit
-   - **Loading States**: Visual feedback during processing
+1. **🏠 Header** - Navigation and branding
+2. **📚 Mode Selection** - Choose between Local Chat and Deep Research
+3. **📁 File Upload Area** - Drag and drop your documents
+4. **⚙️ Provider Toggle** - Switch between Ollama (local) and OpenAI (cloud)
+5. **💬 Chat Interface** - Input area and conversation history
+6. **📊 Results Display** - Research outputs and analysis
 
 ---
 
-## 💬 Local Document Chat
+## 💬 Local Chat Mode
 
-![Local Chat Interface](images/local-chat-interface.png)
+Local Chat mode lets you have conversations with your uploaded documents using either local or cloud AI models.
 
-### Overview
+### Step 1: Upload Documents
 
-Local Document Chat allows you to have conversations with your uploaded documents using either local AI models (Ollama) or cloud models (OpenAI).
+![File Upload](./docs/images/file-upload.png)
+*Drag and drop files or click to select*
 
-### Getting Started
+1. **Drag and drop** files into the upload area, or **click to browse**
+2. **Supported formats:** PDF, DOCX, TXT, MD, CSV, XLS, XLSX
+3. **Multiple files** can be uploaded at once
+4. Files are automatically processed and ready for chat
 
-1. **Upload Documents**
-   ![Document Upload](images/document-upload.png)
-   - Drag & drop files into the upload zone
-   - Supported formats: PDF, DOCX, TXT, CSV, XLS
-   - Files are processed automatically
+### Step 2: Select Local Chat Mode
 
-2. **Select Provider**
-   ![Provider Selection](images/provider-selection.png)
-   - **Ollama (Local)**: 100% private, requires local setup
-   - **OpenAI (Cloud)**: Advanced models, requires API key
-   - Provider info shows setup requirements
+![Mode Selection](./docs/images/mode-selection.png)
+*Choose Local Chat for document-only conversations*
 
-3. **Start Chatting**
-   ![Chat History](images/chat-history.png)
-   - Type questions about your documents
-   - View conversation history
-   - Get contextual responses based on document content
+- Click the **"Local Chat"** button (blue)
+- This mode focuses only on your uploaded documents
+- No internet search is performed
 
-### Features
+### Step 3: Choose Your AI Provider
 
-- **Document Context**: AI understands your uploaded files
-- **Conversation Memory**: Maintains chat history
-- **Real-time Processing**: Instant responses
-- **Privacy Options**: Choose local vs cloud processing
-- **Multi-format Support**: Works with various document types
+![Provider Selection](./docs/images/provider-selection.png)
+*Select between Ollama (private) and OpenAI (cloud)*
 
-### Best Practices
+**Ollama (Local & Private):**
+- ✅ 100% privacy - data never leaves your machine
+- ✅ No API costs
+- ✅ Works offline
+- ⚠️ Requires Ollama to be running locally
+- ⚠️ May be slower than cloud models
 
-- **Upload related documents** together for better context
-- **Ask specific questions** for more accurate responses
-- **Use follow-up questions** to dive deeper into topics
-- **Clear context** by uploading new documents when changing topics
+**OpenAI (Cloud):**
+- ✅ Latest AI models (GPT-4o, etc.)
+- ✅ Faster responses
+- ✅ Advanced reasoning capabilities
+- ⚠️ Requires internet connection
+- ⚠️ Uses API credits
+
+### Step 4: Start Chatting
+
+![Local Chat Interface](./docs/images/local-chat.png)
+*Chat interface with conversation history*
+
+1. **Type your question** about the documents
+2. **Press Enter** or click the **"Chat"** button
+3. **Watch the loading indicator** while AI processes your request
+4. **View the response** based on your document content
+
+### Example Questions:
+- "What are the main findings in this research paper?"
+- "Summarize the key points from these meeting notes"
+- "What budget items are mentioned in the financial report?"
+- "Compare the approaches described in these documents"
 
 ---
 
 ## 🔍 Deep Research Mode
 
-![Deep Research Interface](images/deep-research-interface.png)
+Deep Research mode combines your documents with internet search for comprehensive analysis.
 
-### Overview
+### Step 1: Select Deep Research Mode
 
-Deep Research Mode combines your uploaded documents with internet research to provide comprehensive, cited reports on any topic.
+![Deep Research Mode](./docs/images/deep-research-mode.png)
+*Deep Research mode for comprehensive analysis*
 
-### Features
+- Click the **"Deep Research"** button (teal)
+- This mode uses both your documents AND internet sources
+- Provides more comprehensive and current information
 
-1. **Hybrid Research**
-   - Combines local documents with web search
-   - Provides comprehensive coverage
-   - Includes citations and sources
+### Step 2: Configure Research Settings
 
-2. **Custom Research Questions**
-   ![Custom Questions](images/custom-questions.png)
-   - Add multiple specific research questions
-   - Guide the research direction
-   - Get structured answers
+![Research Settings](./docs/images/research-settings.png)
+*Advanced provider and model selection*
 
-3. **Research Reports**
-   ![Research Report](images/research-report.png)
-   - Comprehensive analysis
-   - Source citations
-   - Multiple export formats
+1. **Choose Provider:** OpenAI or Ollama
+2. **Select Model:** Different models for different needs
+   - GPT-4o: Most advanced, best for complex analysis
+   - GPT-4o Mini: Fast and efficient for most tasks
+   - Mistral 7B: Local alternative, good balance
+3. **Optional:** Add custom research questions
 
-### Research Process
+### Step 3: Run Research
 
-1. **Upload Context Documents** (optional)
-2. **Enter Research Query** or add custom questions
-3. **Select Provider** (OpenAI/Ollama for deep research)
-4. **Start Research** - AI conducts comprehensive analysis
-5. **Review Results** with citations and sources
+![Research Process](./docs/images/research-process.png)
+*Real-time research progress and results*
 
-### Use Cases
+1. **Enter your research topic**
+2. **Click "Research"** to start
+3. **Watch real-time progress** as sources are found and analyzed
+4. **Review comprehensive report** with citations and sources
 
-- **Academic Research**: Combine papers with web sources
-- **Market Analysis**: Internal docs + industry research  
-- **Competitive Intelligence**: Company docs + public information
-- **Policy Research**: Historical documents + current trends
+### Research Output Includes:
+- **Executive Summary**
+- **Detailed Analysis** 
+- **Source Citations**
+- **Related Documents** from your uploads
+- **Downloadable Reports** (PDF, DOCX)
 
 ---
 
 ## ⚙️ Provider Selection
 
-![Provider Configuration](images/provider-configuration.png)
+### Ollama (Local AI)
 
-### OpenAI (Cloud)
+*Ollama local setup and model selection*
 
-**Advantages:**
-- Latest AI models (GPT-4o, GPT-4 Turbo)
-- Superior reasoning capabilities
-- Fast processing
-- No local hardware requirements
+**Setup Requirements:**
+1. **Install Ollama:** `brew install ollama` (macOS) or visit [ollama.ai](https://ollama.ai)
+2. **Start Ollama:** `ollama serve`
+3. **Download models:** `ollama pull mistral:7b`
 
-**Requirements:**
-- OpenAI API key
-- Internet connection
-- Usage costs apply
+**Available Models:**
+- **Mistral 7B** - Balanced performance and speed
+- **Llama 3.2 3B** - Fast and lightweight
+- **Llama 3.3 70B** - Highest quality (requires more RAM)
+- **Phi-3 Mini** - Microsoft's efficient model
+- **DeepSeek R1** - Great for reasoning tasks
 
-**Setup:**
-```env
-OPENAI_API_KEY=your_key_here
-SMART_LLM=openai:gpt-4o-mini
-FAST_LLM=openai:gpt-4o-mini
-```
+**Best For:**
+- 🔒 Privacy-sensitive documents
+- 💰 Cost-conscious usage
+- 🌐 Offline environments
+- 🏠 Personal projects
 
-### Ollama (Local)
+### OpenAI (Cloud AI)
 
-**Advantages:**
-- 100% private and offline
-- No usage costs after setup
-- Full data control
-- No internet required
+*OpenAI API configuration and model options*
 
-**Requirements:**
-- Local hardware (4GB+ RAM)
-- Ollama installation
-- Model downloads
+**Setup Requirements:**
+1. **Get API Key** from [platform.openai.com](https://platform.openai.com)
+2. **Add to .env file:** `OPENAI_API_KEY=your_key_here`
+3. **Monitor usage** on OpenAI dashboard
 
-**Setup:**
-```bash
-./setup_ollama.sh
-```
+**Available Models:**
+- **GPT-4o** - Most advanced, best reasoning
+- **GPT-4o Mini** - Fast, cost-effective
+- **GPT-4 Turbo** - Good balance of speed and capability
 
-**Models Available:**
-- **mistral:7b**: Balanced performance
-- **llama3.2:3b**: Fast responses  
-- **llama3.3:70b**: Best quality (requires 40GB+ RAM)
-- **phi3:mini**: Lightweight option
-
-### Hybrid Usage
-
-You can use different providers for different tasks:
-
-- **Local Chat**: Ollama for privacy
-- **Deep Research**: OpenAI for comprehensive analysis
-- **Document Processing**: Local embeddings
-- **Web Research**: Cloud models for latest information
+**Best For:**
+- 🧠 Complex analysis and reasoning
+- 🚀 Fastest response times
+- 📈 Professional/business use
+- 🌍 Latest information synthesis
 
 ---
 
 ## 📁 File Management
 
-![File Management](images/file-management.png)
+### Supported File Types
 
-### Supported Formats
+*Supported document formats*
 
-| Format | Extension | Use Case |
+| Format | Extension | Best For |
 |--------|-----------|----------|
-| PDF | `.pdf` | Reports, papers, manuals |
-| Word | `.docx`, `.doc` | Documents, contracts |
-| Text | `.txt` | Plain text files |
-| CSV | `.csv` | Data tables, spreadsheets |
-| Excel | `.xlsx`, `.xls` | Complex spreadsheets |
-
-### Upload Process
-
-1. **Single Upload**: Click to select files
-2. **Bulk Upload**: Drag multiple files at once
-3. **Replace Mode**: New uploads clear previous files
-4. **Processing**: Automatic text extraction and indexing
+| PDF | `.pdf` | Research papers, reports, presentations |
+| Word | `.docx`, `.doc` | Documents, proposals, notes |
+| Text | `.txt`, `.md` | Code, documentation, plain text |
+| Spreadsheet | `.xlsx`, `.xls`, `.csv` | Data, financial reports, logs |
 
 ### File Operations
 
-- **View Files**: Current session documents panel
-- **Remove Individual**: X button on each file
-- **Clear All**: Remove all uploaded files
-- **Session Persistence**: Files remain during session
+*File upload, preview, and management interface*
 
-### Storage
+**Upload:**
+- **Drag & Drop** multiple files at once
+- **Click to browse** for traditional file selection
+- **Automatic processing** extracts text content
+- **Real-time feedback** shows upload progress
 
-- **Backend Processing**: Files processed on server
-- **Temporary Storage**: Cleared between sessions
-- **Privacy**: Files not permanently stored
-- **Local Mode**: All processing stays local
+**Manage:**
+- **View uploaded files** with size and type info
+- **Remove individual files** using the X button
+- **Clear all files** with the "Clear All" button
+- **Auto-refresh** checks for new files every 5 seconds
+
+### Session Persistence
+
+*Current session documents display*
+
+- **Files persist** between browser sessions
+- **Document indicator** shows current files on startup
+- **Ready status** confirms documents are processed
+- **File count** displays total available documents
 
 ---
 
 ## 🔧 Advanced Features
 
-### Environment Configuration
+### Custom Research Questions
 
-```env
-# Core Settings
-OPENAI_API_KEY=sk-your-key-here
-TAVILY_API_KEY=tvly-your-key-here
+![Custom Questions](./docs/images/custom-questions.png)
+*Define specific research questions for targeted analysis*
 
-# Model Configuration
-SMART_LLM=openai:gpt-4o-mini
-FAST_LLM=openai:gpt-4o-mini
-EMBEDDING=openai:text-embedding-3-small
+In Deep Research mode, you can add custom questions:
+1. Click **"+ Add Question"**
+2. Enter specific research angles
+3. Click **"Research These Questions"**
+4. Get targeted analysis for each question
 
-# Ollama Settings (if using local)
-OLLAMA_BASE_URL=http://localhost:11434
-LLM_PROVIDER=ollama
+### Chat History Management
 
-# Research Settings
-MAX_SEARCH_RESULTS_PER_QUERY=5
-TOTAL_WORDS=1000
-REPORT_FORMAT=apa
-```
+![Chat History](./docs/images/chat-history.png)
+*Conversation history and context management*
 
-### Custom Research Types
+- **Persistent conversations** within sessions
+- **Context awareness** - AI remembers previous questions
+- **Visual indicators** for user vs assistant messages
+- **Scrollable history** for long conversations
 
-AI Researcher supports various research report types:
+### Research History Sidebar
 
-- **research_report**: General comprehensive research
-- **outline_report**: Structured outline format
-- **resource_report**: Resource and citation focused
-- **subtopic_report**: Deep dive into specific aspects
+*Access previous research sessions*
 
-### API Integration
+- **Saved research** automatically stored
+- **Quick access** to previous analyses
+- **Delete options** for cleanup
+- **Export functionality** for reports
 
-For developers wanting to integrate AI Researcher:
+### Real-time Progress Tracking
 
-```python
-from gpt_researcher import GPTResearcher
+*Live research progress and source discovery*
 
-# Initialize researcher
-researcher = GPTResearcher(
-    query="Your research question",
-    report_type="research_report",
-    report_source="hybrid"  # local, web, or hybrid
-)
-
-# Conduct research
-result = await researcher.conduct_research()
-report = await researcher.write_report()
-```
-
-### Keyboard Shortcuts
-
-- **Enter**: Submit message/query
-- **Shift + Enter**: New line in input
-- **Cmd/Ctrl + K**: Clear input
-- **Esc**: Cancel current operation
+- **Source discovery** shows websites being analyzed
+- **Processing steps** display current AI operations
+- **Time estimates** help manage expectations
+- **Cancel option** to stop long-running research
 
 ---
 
-## 🔧 Troubleshooting
+## 🛠️ Troubleshooting
 
 ### Common Issues
 
-#### 1. Ollama Connection Failed
+#### 1. "Provider toggle not showing"
 
-**Symptoms:**
-- "Failed to connect to Ollama"
-- Local chat not working
+*Provider toggle requires uploaded documents*
+
+**Solution:**
+- ✅ Upload at least one document first
+- ✅ Select "Local Chat" mode
+- ✅ Toggle will appear below uploaded files
+
+#### 2. "Ollama not responding"
+
+*Ollama connection troubleshooting*
 
 **Solutions:**
 ```bash
 # Check if Ollama is running
-ollama serve
-
-# Test connection
 curl http://localhost:11434/api/tags
 
-# Restart Ollama
-pkill ollama && ollama serve
-```
+# Start Ollama service
+ollama serve
 
-#### 2. Model Download Issues
-
-**Symptoms:**
-- "Model not found"
-- Slow/failed downloads
-
-**Solutions:**
-```bash
-# Check available models
-ollama list
-
-# Manually download model
+# Pull required models
 ollama pull mistral:7b
-
-# Check disk space (models are large)
-df -h
+ollama pull mxbai-embed-large
 ```
 
-#### 3. File Upload Problems
+#### 3. "OpenAI API errors"
 
-**Symptoms:**
-- Files not uploading
-- Processing errors
+*OpenAI API troubleshooting*
 
 **Solutions:**
-- Check file size (limit: 50MB per file)
-- Verify file format is supported
-- Ensure backend is running
-- Check browser console for errors
+- ✅ Check API key in `.env` file
+- ✅ Verify billing and credits on OpenAI dashboard
+- ✅ Test API key: `curl https://api.openai.com/v1/models -H "Authorization: Bearer YOUR_KEY"`
 
-#### 4. Environment Variables
+#### 4. "File upload failures"
 
-**Symptoms:**
-- API key errors
-- Configuration not loading
+![Upload Error](./docs/images/upload-error.png)
+*File upload troubleshooting*
 
 **Solutions:**
-```bash
-# Verify .env file exists
-ls -la .env
+- ✅ Check file size (max 50MB per file)
+- ✅ Verify file format is supported
+- ✅ Clear browser cache and cookies
+- ✅ Check backend is running on port 8000
 
-# Check environment loading
-python -c "import os; print(os.getenv('OPENAI_API_KEY'))"
+#### 5. "Chat button stuck loading"
 
-# Restart services after .env changes
-```
-
-#### 5. Performance Issues
-
-**Symptoms:**
-- Slow responses
-- High memory usage
+![Loading Issue](./docs/images/loading-issue.png)
+*Chat loading state troubleshooting*
 
 **Solutions:**
-- Use smaller models (phi3:mini, llama3.2:3b)
-- Increase system RAM
-- Close other applications
-- Monitor resource usage:
-```bash
-# Check memory usage
-top -p $(pgrep ollama)
+- ✅ Check browser console for errors
+- ✅ Verify backend connection
+- ✅ Refresh the page and try again
+- ✅ Check if Ollama/OpenAI service is responding
 
-# Monitor GPU usage (if applicable)
-nvidia-smi
-```
+### Performance Tips
+
+**For Best Results:**
+- 📄 **Document Quality:** Clean, well-formatted documents work best
+- 🧠 **Model Selection:** Use GPT-4o for complex analysis, Mistral for speed
+- 💾 **File Management:** Keep document count reasonable (< 50 files)
+- 🔄 **Regular Cleanup:** Clear old files to improve performance
+- 🌐 **Network:** Stable internet connection for cloud providers
 
 ### Getting Help
 
-1. **Documentation**: Check [https://docs.gptr.dev](https://docs.gptr.dev)
-2. **GitHub Issues**: [https://github.com/assafelovic/gpt-researcher/issues](https://github.com/assafelovic/gpt-researcher/issues)
-3. **Community**: Join the Discord community
-4. **Logs**: Check browser console and backend logs
+**Debug Information:**
+- Check browser console (F12) for error messages
+- View backend logs in the terminal
+- Test API endpoints directly with curl
+- Verify environment variables are loaded
 
-### Best Practices
-
-1. **Start Small**: Begin with lightweight models
-2. **Test Setup**: Verify each component works independently
-3. **Monitor Resources**: Keep an eye on system performance
-4. **Regular Updates**: Keep Ollama and models updated
-5. **Backup Config**: Save working .env configurations
+**Support Resources:**
+- 📖 [Project Documentation](https://docs.gptr.dev/)
+- 💬 [GitHub Issues](https://github.com/assafelovic/gpt-researcher/issues)
+- 🌟 [Community Discord](https://discord.gg/gptr)
 
 ---
 
-## 📞 Support
+## 🎉 Tips for Success
 
-Need help? Here are the best resources:
+### Effective Questioning
 
-- **📖 Documentation**: [https://docs.gptr.dev](https://docs.gptr.dev)
-- **🐛 Bug Reports**: [GitHub Issues](https://github.com/assafelovic/gpt-researcher/issues)
-- **💬 Community**: Discord server link
-- **📧 Email**: support@gptr.dev
+**Good Questions:**
+- ✅ "What are the main recommendations in these strategy documents?"
+- ✅ "Compare the financial performance across these quarterly reports"
+- ✅ "Summarize the key technical specifications mentioned"
+
+**Less Effective:**
+- ❌ "Tell me everything about these files"
+- ❌ "What do you think?"
+- ❌ Very broad questions without context
+
+### Document Organization
+
+**Best Practices:**
+- 📁 **Group related documents** for coherent analysis
+- 📝 **Use descriptive filenames** 
+- 🗂️ **Clear out old files** when switching topics
+- 📊 **Mix document types** for comprehensive insights
+
+### Provider Strategy
+
+**Ollama When:**
+- 🔒 Privacy is paramount
+- 💰 Controlling costs
+- 🏠 Working offline
+- 📚 Simple document Q&A
+
+**OpenAI When:**
+- 🧠 Complex reasoning needed
+- 🚀 Speed is important
+- 🌍 Need latest information
+- 💼 Professional analysis
 
 ---
 
-*Last updated: January 2025*
-*Version: 2.0.0*
+Enjoy using AI Researcher! 🚀
 
-Happy researching with AI Researcher! 🚀 
+*Last updated: January 2025* 
